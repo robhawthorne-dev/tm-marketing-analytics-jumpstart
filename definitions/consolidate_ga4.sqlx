@@ -1,0 +1,32 @@
+-- definitions/consolidate_ga4.sqlx
+config {
+  type: "operations",
+  tags: ["consolidation"]
+}
+
+-- Reference the config from the includes folder
+const settings = config.settings;
+
+BEGIN
+  DECLARE datasets ARRAY<STRING>;
+  
+  -- Use INFORMATION_SCHEMA to find all datasets matching your prefix
+  SET datasets = (
+    SELECT ARRAY_AGG(schema_name)
+    FROM `${settings.project_id}.INFORMATION_SCHEMA.SCHEMATA`
+    WHERE schema_name LIKE '${settings.source_dataset_prefix}%'
+  );
+
+  -- Loop through every dataset found and incrementally load the data
+  FOR ds IN (SELECT name FROM UNNEST(datasets) AS name)
+  DO
+    EXECUTE IMMEDIATE FORMAT("""
+      INSERT INTO `${settings.project_id}.${settings.target_dataset}.${settings.target_table}`
+      SELECT *, %Q as source_dataset_id
+      FROM `${settings.project_id}.%s.events_*`
+      WHERE _TABLE_SUFFIX BETWEEN 
+        FORMAT_DATE('%%Y%%m%%d', DATE_SUB(CURRENT_DATE(), INTERVAL ${settings.lookback_days} DAY))
+        AND FORMAT_DATE('%%Y%%m%%d', CURRENT_DATE())
+    """, ds.name, ds.name);
+  END FOR;
+END;
