@@ -3,7 +3,7 @@
   "defaultDatabase": "trademebigquery2",
   "defaultSchema": "ingest_marketing_analytics",
   "assertionSchema": "marketing_assertions",
-  "defaultLocation": "us-central1",
+  "defaultLocation": "US",
   "vars": {
     "ga4_property_id": "150784839",
     "ga4_export_project": "trademebigquery2",
