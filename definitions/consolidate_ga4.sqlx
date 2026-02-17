@@ -6,36 +6,37 @@ config {
 
 BEGIN
   DECLARE datasets ARRAY<STRING>;
+  -- Use a project variable to determine the lookback window
+  -- If 'initial_load' is passed, we use 365 days, otherwise we use config.lookback_days (2)
+  DECLARE days_to_load INT64 DEFAULT ${dataform.projectConfig.vars.initial_load === "true" ? 365 : config.lookback_days};
   
-  -- Dynamically discover all datasets matching the 'analytics_' prefix
   SET datasets = (
     SELECT ARRAY_AGG(schema_name)
-    FROM `${config.settings.project_id}.INFORMATION_SCHEMA.SCHEMATA`
-    WHERE schema_name LIKE '${config.settings.source_dataset_prefix}%'
+    FROM `${config.project_id}.INFORMATION_SCHEMA.SCHEMATA`
+    WHERE schema_name LIKE '${config.source_dataset_prefix}%'
   );
 
-  -- Loop through found datasets and insert new data shards
   FOR ds IN (SELECT name FROM UNNEST(datasets) AS name)
   DO
     EXECUTE IMMEDIATE FORMAT("""
-      INSERT INTO `${config.settings.project_id}.${config.settings.target_dataset}.${config.settings.target_table}`
+      INSERT INTO `${config.project_id}.${config.target_dataset}.${config.target_table}`
       (event_date, event_timestamp, event_name, user_pseudo_id, source_dataset_id)
       SELECT 
         PARSE_DATE('%%Y%%m%%d', event_date),
         event_timestamp,
         event_name,
         user_pseudo_id,
-        %Q as source_dataset_id
-      FROM `${config.settings.project_id}.%%s.events_*`
+        %Q
+      FROM `${config.project_id}.%%s.events_*`
       WHERE _TABLE_SUFFIX BETWEEN 
-        FORMAT_DATE('%%Y%%m%%d', DATE_SUB(CURRENT_DATE(), INTERVAL ${config.settings.lookback_days} DAY))
+        FORMAT_DATE('%%Y%%m%%d', DATE_SUB(CURRENT_DATE(), INTERVAL %%d DAY))
         AND FORMAT_DATE('%%Y%%m%%d', CURRENT_DATE())
-        -- Additional safety: avoid duplicates if the script runs multiple times a day
+        -- Deduplication safety
         AND event_timestamp > (
           SELECT COALESCE(MAX(event_timestamp), 0) 
-          FROM `${config.settings.project_id}.${config.settings.target_dataset}.${config.settings.target_table}`
+          FROM `${config.project_id}.${config.target_dataset}.${config.target_table}`
           WHERE source_dataset_id = %Q
         )
-    """, ds.name, ds.name, ds.name);
+    """, ds.name, ds.name, days_to_load, ds.name);
   END FOR;
 END;
