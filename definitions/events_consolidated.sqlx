@@ -3,7 +3,6 @@ config {
   schema: "ingest_marketing_analytics",
   name: "events_consolidated",
   bigquery: {
-    // This is the critical part for Rob's budget
     partitionBy: "event_date",
     clusterBy: ["source_dataset_id", "user_pseudo_id", "event_name"],
     updatePartitionFilter: "event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 2 DAY)"
@@ -15,8 +14,9 @@ SELECT
   event_timestamp,
   event_name,
   user_pseudo_id,
-  CAST(NULL AS STRING) AS source_dataset_id
+  -- We use a real dataset ID here just for the initial schema discovery
+  CAST('analytics_150784839' AS STRING) AS source_dataset_id
 FROM
-  `${config.project_id}.analytics_*.events_*`
+  `${config.project_id}.analytics_150784839.events_*`
 WHERE
-  _TABLE_SUFFIX = 'placeholder' -- Schema discovery only
+  _TABLE_SUFFIX = 'placeholder'
