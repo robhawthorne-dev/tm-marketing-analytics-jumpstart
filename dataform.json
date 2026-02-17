@@ -11,7 +11,8 @@
     "ga4_export_table_suffix": "_*",
     "ga4_incremental_processing_days_back": "3",
     "ads_export_data": "[]",
-  "ads_metrics_lookback_days": "365"
+    "ads_metrics_lookback_days": "365",
+    "initial_load": "false"
   }
 } 
     
