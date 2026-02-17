@@ -17,6 +17,7 @@ SELECT
   -- We use a real dataset ID here just for the initial schema discovery
   CAST('analytics_150784839' AS STRING) AS source_dataset_id
 FROM
+-- Use the config variable here
   `${config.project_id}.analytics_150784839.events_*`
 WHERE
   _TABLE_SUFFIX = 'placeholder'
